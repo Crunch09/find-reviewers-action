@@ -1,0 +1,16 @@
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  find_reviewers_job:
+    runs-on: ubuntu-latest
+    name: A job to pick reviewers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Find reviewers action step
+        uses: ./
+        id: find-reviewers
+      - name: Get the output time
+        run: echo "The time was ${{ steps.find-reviewers.outputs.time }}"

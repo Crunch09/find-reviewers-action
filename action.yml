@@ -1,0 +1,8 @@
+name: 'Find reviewers'
+description: "Find random reviewers"
+outputs:
+  time:
+    description: "The time this command ran"
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
