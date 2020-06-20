@@ -4,5 +4,5 @@ outputs:
   time:
     description: "The time this command ran"
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: 'node12'
+  image: 'dist/index.js'
