@@ -5,4 +5,4 @@ outputs:
     description: "The time this command ran"
 runs:
   using: 'node12'
-  image: 'dist/index.js'
+  main: 'dist/index.js'
