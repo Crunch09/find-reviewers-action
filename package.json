@@ -1,6 +1,7 @@
 {
   "name": "find-reviewers-action",
   "version": "1.0.0",
+  "private": true,
   "description": "",
   "main": "lib/main.js",
   "scripts": {
@@ -22,7 +23,9 @@
   "homepage": "https://github.com/Crunch09/find-reviewers-action#readme",
   "dependencies": {
     "@actions/core": "^1.2.4",
-    "@actions/github": "^3.0.0",
+    "@actions/github": "^3.0.0"
+  },
+  "devDependencies": {
     "@zeit/ncc": "^0.22.3",
     "eslint": "^7.3.0",
     "prettier": "^2.0.5",
