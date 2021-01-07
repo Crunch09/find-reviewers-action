@@ -3,6 +3,7 @@ import * as github from '@actions/github';
 import { promises as fs } from 'fs';
 import YAML from 'yaml';
 import * as Webhooks from '@octokit/webhooks';
+import { WebClient, WebAPICallResult } from '@slack/web-api';
 
 
 export interface ExistingReviewers {
@@ -150,6 +151,7 @@ export class ReviewAssigner {
                     }
 
                     await this.updateReviewers(token, pickedReviewers, currentReviewers, config);
+                    await this.sendSlackMessage(pickedReviewers, config, payload);
                 }
             }
         }
@@ -186,6 +188,60 @@ export class ReviewAssigner {
         } catch (error) {
             core.setFailed(`Couldn't assign reviewers: ${error.message}`);
         }
+    }
+
+    private async sendSlackMessage(pickedReviewers: string[], config: any, payload: Webhooks.Webhooks.WebhookPayloadPullRequest) {
+      try {
+        const slackConfig = config.notifications?.slack;
+        if (slackConfig) {
+          const { IncomingWebhook } = require('@slack/webhook');
+          const webhook = new IncomingWebhook(slackConfig.url);
+          const modifications = `${payload.commits} commits, +${payload.additions} -${payload.deletions}`;
+          const pickedReviewers = pickedReviewers.map(username => `<https://github.com/${username}|${username}>`).join(', ');
+          if (userNotifications !== '') {
+            userNotifications = `for ${userNotifications}`;
+          }
+          const userNotifications = getMappedReviewers(pickedReviewers, config).join(', ');
+          await webhook.send({
+            channel: config.channel,
+            username: 'find-reviewers',
+            text: `Review requested: <${payload.html_url}|${payload.base.repo.full_name}#${payload.number} by ${payload.user.login}> ${userNotifications}`.trim(),
+            attachments: [
+              {
+                pretext: payload.title,
+                fallback: `${pickedReviewers}. ${modifications}`,
+                color: 'good',
+                fields: [
+                  {
+                    title: 'Requested reviewers',
+                    value: pickedReviewers,
+                    short: true
+                  },
+                  {
+                    title: 'Changes',
+                    value: modifications,
+                    short: true
+                  }
+                ]
+              }
+            ]
+          });
+        }
+
+      } catch (error) {
+          core.setFailed(`Couldn't send slack message: ${error.message}`);
+      }
+    }
+
+    private getMappedReviewers(pickedReviewers: string[], config: any) {
+      let mappedReviewers: string[] = [];
+      const userMappings = config.user_mappings;
+      for (const username in pickedReviewers) {
+        const mapping = userMappings[username];
+        if (mapping && mapping.hasOwnProperty('slack')) {
+          mappedReviewers.push(mapping.slack);
+        }
+      }
     }
 
 }
