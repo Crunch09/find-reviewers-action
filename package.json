@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/Crunch09/find-reviewers-action#readme",
   "dependencies": {
-    "@actions/core": "^1.2.4",
+    "@actions/core": "^1.2.6",
     "@actions/github": "^3.0.0",
     "@octokit/rest": "^18.0.0",
     "@slack/webhook": "^5.0.4",
