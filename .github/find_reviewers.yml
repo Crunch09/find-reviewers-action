@@ -1,3 +1,4 @@
+
 ---
 # Describe the labels that once added to a pull request cause the app to assign
 # randomly chosen reviewers.
@@ -8,9 +9,21 @@ labels:
     # chosen from the first group and one reviewer from the second group.
     groups:
       -
+        number_of_picks: 2
+        possible_reviewers:
+          - florian
+          - erika
+          - octobot
+          - mathilda
+          - james
+          - cx-3po
+      -
         number_of_picks: 1
         possible_reviewers:
-          - marianeum
+          - romain
+          - maria
+          - amal
+          - ana
     label: "documentation"
   -
     groups:
@@ -26,8 +39,8 @@ labels:
 # The `URL` is of an [Incoming Webhook](https://api.slack.com/incoming-webhooks).
 notifications:
   slack:
-    url: "https://hooks.slack.com/services/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"
-    channel: "#find-reviewers"
+    url: "https://hooks.slack.com/services/AAA/BBB/CCC"
+    channel: "#pull_requests"
 
 # Optional: Define mappings between GitHub usernames and Slack usernames so people
 # get a notification when their review is being requested.
@@ -35,5 +48,5 @@ notifications:
 user_mappings:
   florian:
     slack: U123456
-  marianeum:
+  octobot:
     slack: U987654
