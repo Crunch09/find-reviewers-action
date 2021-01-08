@@ -2907,15 +2907,13 @@ const github = __importStar(__webpack_require__(469));
 const fs_1 = __webpack_require__(747);
 const yaml_1 = __importDefault(__webpack_require__(596));
 const slack = __importStar(__webpack_require__(736));
-;
 class ReviewAssigner {
-    constructor() {
-    }
+    constructor() { }
     assignReviewers(token, payload) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const attachedLabel = (_a = payload.label) === null || _a === void 0 ? void 0 : _a.name;
-            const content = yield fs_1.promises.readFile(".github/reviewers.yml", "utf8");
+            const content = yield fs_1.promises.readFile(".github/find_reviewers.yml", "utf8");
             const config = yaml_1.default.parse(content);
             for (const i in config.labels) {
                 if (config.labels.hasOwnProperty(i)) {
@@ -2978,7 +2976,7 @@ class ReviewAssigner {
                 const reviewersResult = yield octo.pulls.listRequestedReviewers({
                     owner: github.context.repo.owner,
                     repo: github.context.repo.repo,
-                    pull_number: github.context.issue.number
+                    pull_number: github.context.issue.number,
                 });
                 return reviewersResult.data;
             }
@@ -2996,8 +2994,11 @@ class ReviewAssigner {
                     owner: github.context.repo.owner,
                     repo: github.context.repo.repo,
                     pull_number: github.context.issue.number,
-                    reviewers: [...pickedReviewers, ...existingReviewers.users.map(x => x.login.toLowerCase())].filter(x => x),
-                    team_reviewers: existingReviewers.teams.map(x => x.slug),
+                    reviewers: [
+                        ...pickedReviewers,
+                        ...existingReviewers.users.map((x) => x.login.toLowerCase()),
+                    ].filter((x) => x),
+                    team_reviewers: existingReviewers.teams.map((x) => x.slug),
                 });
             }
             catch (error) {
@@ -3013,9 +3014,11 @@ class ReviewAssigner {
                 if (slackConfig) {
                     const webhook = new slack.IncomingWebhook(slackConfig.url);
                     const modifications = `${payload.pull_request.commits} commits, +${payload.pull_request.additions} -${payload.pull_request.deletions}`;
-                    const pickedReviewerNames = pickedReviewers.map(username => `<https://github.com/${username}|${username}>`).join(', ');
-                    let userNotifications = this.getMappedReviewers(pickedReviewers, config).join(', ');
-                    if (userNotifications !== '') {
+                    const pickedReviewerNames = pickedReviewers
+                        .map((username) => `<https://github.com/${username}|${username}>`)
+                        .join(", ");
+                    let userNotifications = this.getMappedReviewers(pickedReviewers, config).join(", ");
+                    if (userNotifications !== "") {
                         userNotifications = `for ${userNotifications}`;
                     }
                     //   console.log({
@@ -3044,27 +3047,27 @@ class ReviewAssigner {
                     //   });
                     yield webhook.send({
                         channel: (_c = (_b = config.notifications) === null || _b === void 0 ? void 0 : _b.slack) === null || _c === void 0 ? void 0 : _c.channel,
-                        username: 'find-reviewers',
+                        username: "find-reviewers",
                         text: `Review requested: <${payload.repository.html_url}|${payload.repository.full_name}#${payload.number} by ${payload.pull_request.user.login}> ${userNotifications}`.trim(),
                         attachments: [
                             {
                                 pretext: payload.pull_request.title,
                                 fallback: `${pickedReviewerNames}. ${modifications}`,
-                                color: 'good',
+                                color: "good",
                                 fields: [
                                     {
-                                        title: 'Requested reviewers',
+                                        title: "Requested reviewers",
                                         value: pickedReviewerNames,
-                                        short: true
+                                        short: true,
                                     },
                                     {
-                                        title: 'Changes',
+                                        title: "Changes",
                                         value: modifications,
-                                        short: true
-                                    }
-                                ]
-                            }
-                        ]
+                                        short: true,
+                                    },
+                                ],
+                            },
+                        ],
                     });
                 }
             }
@@ -3077,9 +3080,9 @@ class ReviewAssigner {
         let mappedReviewers = [];
         const userMappings = config.user_mappings;
         console.log(pickedReviewers);
-        pickedReviewers.forEach(username => {
+        pickedReviewers.forEach((username) => {
             const mapping = userMappings[username];
-            if (mapping && mapping.hasOwnProperty('slack')) {
+            if (mapping && mapping.hasOwnProperty("slack")) {
                 mappedReviewers.push(`<@${mapping.slack}>`);
             }
         });
@@ -4523,9 +4526,10 @@ const ReviewAssigner_1 = __webpack_require__(126);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const token = core.getInput('token', { required: true });
+            const token = core.getInput("token", { required: true });
             const reviewers = new ReviewAssigner_1.ReviewAssigner();
-            const payload = github.context.payload;
+            const payload = github.context
+                .payload;
             yield reviewers.assignReviewers(token, payload);
         }
         catch (error) {

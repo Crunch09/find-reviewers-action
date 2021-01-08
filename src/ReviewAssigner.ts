@@ -97,7 +97,7 @@ export class ReviewAssigner {
     payload: Webhooks.Webhooks.WebhookPayloadPullRequest
   ): Promise<void> {
     const attachedLabel = payload.label?.name;
-    const content = await fs.readFile(".github/reviewers.yml", "utf8");
+    const content = await fs.readFile(".github/find_reviewers.yml", "utf8");
 
     const config = YAML.parse(content);
     for (const i in config.labels) {
