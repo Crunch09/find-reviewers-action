@@ -241,30 +241,7 @@ export class ReviewAssigner {
         if (userNotifications !== "") {
           userNotifications = `for ${userNotifications}`;
         }
-        //   console.log({
-        //     channel: config.notifications?.slack?.channel,
-        //     username: 'find-reviewers',
-        //     text: `Review requested: <${payload.repository.html_url}|${payload.repository.full_name}#${payload.number} by ${payload.pull_request.user.login}> ${userNotifications}`.trim(),
-        //     attachments: [
-        //       {
-        //         pretext: payload.pull_request.title,
-        //         fallback: `${pickedReviewerNames}. ${modifications}`,
-        //         color: 'good',
-        //         fields: [
-        //           {
-        //             title: 'Requested reviewers',
-        //             value: pickedReviewerNames,
-        //             short: true
-        //           },
-        //           {
-        //             title: 'Changes',
-        //             value: modifications,
-        //             short: true
-        //           }
-        //         ]
-        //       }
-        //     ]
-        //   });
+
         await webhook.send({
           channel: config.notifications?.slack?.channel,
           username: "find-reviewers",
