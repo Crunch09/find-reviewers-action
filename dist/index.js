@@ -2897,24 +2897,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReviewAssigner = void 0;
 const core = __importStar(__webpack_require__(470));
 const github = __importStar(__webpack_require__(469));
-const fs_1 = __webpack_require__(747);
-const yaml_1 = __importDefault(__webpack_require__(596));
 const slack = __importStar(__webpack_require__(736));
 class ReviewAssigner {
     constructor() { }
-    assignReviewers(token, payload) {
+    assignReviewers(token, payload, config) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const attachedLabel = (_a = payload.label) === null || _a === void 0 ? void 0 : _a.name;
-            const content = yield fs_1.promises.readFile(".github/find_reviewers.yml", "utf8");
-            const config = yaml_1.default.parse(content);
             for (const i in config.labels) {
                 if (config.labels.hasOwnProperty(i)) {
                     const label = config.labels[i];
@@ -3021,34 +3014,10 @@ class ReviewAssigner {
                     if (userNotifications !== "") {
                         userNotifications = `for ${userNotifications}`;
                     }
-                    //   console.log({
-                    //     channel: config.notifications?.slack?.channel,
-                    //     username: 'find-reviewers',
-                    //     text: `Review requested: <${payload.repository.html_url}|${payload.repository.full_name}#${payload.number} by ${payload.pull_request.user.login}> ${userNotifications}`.trim(),
-                    //     attachments: [
-                    //       {
-                    //         pretext: payload.pull_request.title,
-                    //         fallback: `${pickedReviewerNames}. ${modifications}`,
-                    //         color: 'good',
-                    //         fields: [
-                    //           {
-                    //             title: 'Requested reviewers',
-                    //             value: pickedReviewerNames,
-                    //             short: true
-                    //           },
-                    //           {
-                    //             title: 'Changes',
-                    //             value: modifications,
-                    //             short: true
-                    //           }
-                    //         ]
-                    //       }
-                    //     ]
-                    //   });
                     yield webhook.send({
                         channel: (_c = (_b = config.notifications) === null || _b === void 0 ? void 0 : _b.slack) === null || _c === void 0 ? void 0 : _c.channel,
                         username: "find-reviewers",
-                        text: `Review requested: <${payload.repository.html_url}|${payload.repository.full_name}#${payload.number} by ${payload.pull_request.user.login}> ${userNotifications}`.trim(),
+                        text: `Review requested: <${payload.pull_request.html_url}|${payload.repository.full_name}#${payload.number} by ${payload.pull_request.user.login}> ${userNotifications}`.trim(),
                         attachments: [
                             {
                                 pretext: payload.pull_request.title,
@@ -4519,10 +4488,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(__webpack_require__(470));
 const github = __importStar(__webpack_require__(469));
 const ReviewAssigner_1 = __webpack_require__(126);
+const fs_1 = __webpack_require__(747);
+const yaml_1 = __importDefault(__webpack_require__(596));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -4530,7 +4504,8 @@ function run() {
             const reviewers = new ReviewAssigner_1.ReviewAssigner();
             const payload = github.context
                 .payload;
-            yield reviewers.assignReviewers(token, payload);
+            const config = yield fs_1.promises.readFile(".github/find_reviewers.yml", "utf8");
+            yield reviewers.assignReviewers(token, payload, yaml_1.default.parse(config));
         }
         catch (error) {
             core.error(error);
