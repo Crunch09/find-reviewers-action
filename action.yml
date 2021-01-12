@@ -1,5 +1,12 @@
 name: 'Find reviewers'
 description: "Find random reviewers"
+inputs:
+  token:
+    description: 'Github token'
+    required: true
+  type:
+    description: 'Event that triggered this action'
+    required: true
 outputs:
   time:
     description: "The time this command ran"

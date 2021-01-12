@@ -133,6 +133,48 @@ export class ReviewAssigner {
     }
   }
 
+  async updateReviewers(
+    token: string,
+    payload: PullRequestLabeled,
+    config: any
+  ): Promise<void> {
+    const commentRegex = /^\/reviewers unassign @(\S+)/gi;
+    const body = payload.comment.body;
+    const unassignment = commentRegex.exec(body);
+
+    if (unassignment !== null) {
+      const unassignedPerson = unassignment[1].toLowerCase();
+      const currentReviewers = await getRequestedReviewers(token);
+      const mappedCurrentReviewers = currentReviewers.data.users
+        .map(x => x.login.toLowerCase()).filter(x => x);
+
+      if (mappedCurrentReviewers.includes(unassignedPerson)) {
+        let replacementReviewer = await getPossibleReviewer(payload, config, [
+            unassignedPerson.toLowerCase(),
+            ...mappedCurrentReviewers
+          ].filter(x => x), unassignedPerson.toLowerCase());
+        if (replacementReviewer) {
+          await github.pullRequests.deleteReviewRequest(
+            context.issue({ reviewers: [unassignment[1]] })
+          );
+          await github.pullRequests.createReviewRequest(
+            context.issue(
+              {
+                reviewers: [
+                    replacementReviewer.toLowerCase(),
+                    ...mappedCurrentReviewers
+                      .filter(name => name !== unassignedPerson)
+                  ],
+                team_reviewers: currentReviewers.data.teams
+                  .map(x => x.slug).filter(y => y)
+              }
+            )
+          );
+        }
+      }
+    }
+  }
+
   private async getRequestedReviewers(
     token: string
   ): Promise<ExistingReviewers> {
@@ -149,6 +191,45 @@ export class ReviewAssigner {
       core.setFailed(`Get requested reviewers error: ${error.message}`);
       return Promise.resolve({ users: [], teams: [] });
     }
+  }
+
+  private async function getPossibleReviewer(
+    payload: PullRequestLabeled,
+    config: any,
+    reviewersToExclude: String[],
+    unassignedPerson: string,
+  ) {
+    const currentLabels = payload.issue.labels.map(x => x.name);
+
+    const uniqueReviewersToExclude = [...(new Set(reviewersToExclude))];
+
+    const owner = context.payload.issue.user.login.toLowerCase();
+    reviewersToExclude = [owner, ...uniqueReviewersToExclude].filter(x => x);
+
+    for (let i in config.labels) {
+      if (currentLabels.includes(config.labels[i].label)) {
+        for (let g in config.labels[i].groups) {
+          let specificConfig = config.labels[i].groups[g];
+          let possibleReviewers = specificConfig.possible_reviewers
+            .map(x => x.toLowerCase());
+          if (possibleReviewers && possibleReviewers.includes(unassignedPerson)
+            && specificConfig.number_of_picks) {
+            for (let i = 0; i < reviewersToExclude.length; i++) {
+              let index = possibleReviewers.indexOf(reviewersToExclude[i]);
+              if (index > -1) {
+                possibleReviewers.splice(index, 1);
+              }
+            }
+            if (possibleReviewers.length > 0) {
+              return possibleReviewers[
+                Math.floor(Math.random() * possibleReviewers.length)
+              ];
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   private async updateReviewers(
