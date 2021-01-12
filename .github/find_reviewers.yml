@@ -9,24 +9,11 @@ labels:
     # chosen from the first group and one reviewer from the second group.
     groups:
       -
-        number_of_picks: 2
+        number_of_picks: 1
         possible_reviewers:
-          - florian
-          - erika
-          - octobot
-          - mathilda
-          - james
-          - cx-3po
           - marianeum
           - Crunch09
           - jabeattie
-      -
-        number_of_picks: 1
-        possible_reviewers:
-          - romain
-          - maria
-          - amal
-          - ana
     label: "documentation"
   -
     groups:
