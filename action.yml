@@ -7,9 +7,6 @@ inputs:
   type:
     description: 'Event that triggered this action'
     required: true
-outputs:
-  time:
-    description: "The time this command ran"
 runs:
   using: 'node12'
   main: 'dist/index.js'
