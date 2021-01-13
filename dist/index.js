@@ -2962,6 +2962,29 @@ class ReviewAssigner {
             }
         });
     }
+    reassignReviewer(token, payload, config) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const commentRegex = /^\/reviewers unassign @(\S+)/gi;
+            const body = payload.comment.body;
+            const unassignment = commentRegex.exec(body);
+            if (unassignment !== null) {
+                const unassignedPerson = unassignment[1].toLowerCase();
+                const currentReviewers = yield this.getRequestedReviewers(token);
+                const mappedCurrentReviewers = currentReviewers.users
+                    .map((x) => x.login.toLowerCase()).filter((x) => x);
+                if (mappedCurrentReviewers.includes(unassignedPerson)) {
+                    let replacementReviewer = yield this.getPossibleReviewer(payload, config, [
+                        unassignedPerson.toLowerCase(),
+                        ...mappedCurrentReviewers
+                    ].filter((x) => x), unassignedPerson.toLowerCase());
+                    if (replacementReviewer) {
+                        yield this.removeReviewer(token, [unassignment[1]], config);
+                        yield this.updateReviewers(token, [replacementReviewer], currentReviewers, config);
+                    }
+                }
+            }
+        });
+    }
     getRequestedReviewers(token) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -2976,6 +2999,52 @@ class ReviewAssigner {
             catch (error) {
                 core.setFailed(`Get requested reviewers error: ${error.message}`);
                 return Promise.resolve({ users: [], teams: [] });
+            }
+        });
+    }
+    getPossibleReviewer(payload, config, reviewersToExclude, unassignedPerson) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const currentLabels = payload.issue.labels.map((x) => x.name);
+            const uniqueReviewersToExclude = [...(new Set(reviewersToExclude))];
+            const owner = payload.issue.user.login.toLowerCase();
+            reviewersToExclude = [owner, ...uniqueReviewersToExclude].filter((x) => x);
+            for (let i in config.labels) {
+                if (currentLabels.includes(config.labels[i].label)) {
+                    for (let g in config.labels[i].groups) {
+                        let specificConfig = config.labels[i].groups[g];
+                        let possibleReviewers = specificConfig.possible_reviewers;
+                        if (possibleReviewers && possibleReviewers.includes(unassignedPerson)
+                            && specificConfig.number_of_picks) {
+                            for (let i = 0; i < reviewersToExclude.length; i++) {
+                                let index = possibleReviewers.indexOf(reviewersToExclude[i]);
+                                if (index > -1) {
+                                    possibleReviewers.splice(index, 1);
+                                }
+                            }
+                            if (possibleReviewers.length > 0) {
+                                return possibleReviewers[Math.floor(Math.random() * possibleReviewers.length)];
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        });
+    }
+    removeReviewer(token, reviewers, config) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const octo = github.getOctokit(token);
+                yield octo.pulls.removeRequestedReviewers({
+                    owner: github.context.repo.owner,
+                    repo: github.context.repo.repo,
+                    pull_number: github.context.issue.number,
+                    reviewers: reviewers,
+                    team_reviewers: reviewers,
+                });
+            }
+            catch (error) {
+                core.setFailed(`Couldn't remove reviewer: ${error.message}`);
             }
         });
     }
@@ -4501,11 +4570,21 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const token = core.getInput("token", { required: true });
+            const type = core.getInput("type", { required: true });
             const reviewers = new ReviewAssigner_1.ReviewAssigner();
-            const payload = github.context
-                .payload;
             const config = yield fs_1.promises.readFile(".github/find_reviewers.yml", "utf8");
-            yield reviewers.assignReviewers(token, payload, yaml_1.default.parse(config));
+            switch (type) {
+                case "pull_request":
+                    const prPayload = github.context
+                        .payload;
+                    yield reviewers.assignReviewers(token, prPayload, yaml_1.default.parse(config));
+                    break;
+                case "issue_comment":
+                    const commentPayload = github.context
+                        .payload;
+                    yield reviewers.reassignReviewer(token, commentPayload, yaml_1.default.parse(config));
+                    break;
+            }
         }
         catch (error) {
             core.error(error);
@@ -9344,7 +9423,7 @@ module.exports = require("assert");
 /***/ 361:
 /***/ (function(module) {
 
-module.exports = {"_from":"axios@^0.21.1","_id":"axios@0.21.1","_inBundle":false,"_integrity":"sha512-dKQiRHxGD9PPRIUNIWvZhPTPpl1rf/OxTYKsqKUDjBwYylTvV7SjSHJb9ratfyzM6wCdLCOYLzs73qpg5c4iGA==","_location":"/axios","_phantomChildren":{},"_requested":{"type":"range","registry":true,"raw":"axios@^0.21.1","name":"axios","escapedName":"axios","rawSpec":"^0.21.1","saveSpec":null,"fetchSpec":"^0.21.1"},"_requiredBy":["/@slack/webhook"],"_resolved":"https://registry.npmjs.org/axios/-/axios-0.21.1.tgz","_shasum":"22563481962f4d6bde9a76d516ef0e5d3c09b2b8","_spec":"axios@^0.21.1","_where":"/Users/florianthomas/Code/find-reviewers-action/node_modules/@slack/webhook","author":{"name":"Matt Zabriskie"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"bugs":{"url":"https://github.com/axios/axios/issues"},"bundleDependencies":false,"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}],"dependencies":{"follow-redirects":"^1.10.0"},"deprecated":false,"description":"Promise based HTTP client for the browser and node.js","devDependencies":{"bundlesize":"^0.17.0","coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.0.2","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^20.1.0","grunt-karma":"^2.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^1.0.18","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^1.3.0","karma-chrome-launcher":"^2.2.0","karma-coverage":"^1.1.1","karma-firefox-launcher":"^1.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-opera-launcher":"^1.0.0","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^1.2.0","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.7","karma-webpack":"^1.7.0","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^5.2.0","sinon":"^4.5.0","typescript":"^2.8.1","url-search-params":"^0.10.0","webpack":"^1.13.1","webpack-dev-server":"^1.14.1"},"homepage":"https://github.com/axios/axios","jsdelivr":"dist/axios.min.js","keywords":["xhr","http","ajax","promise","node"],"license":"MIT","main":"index.js","name":"axios","repository":{"type":"git","url":"git+https://github.com/axios/axios.git"},"scripts":{"build":"NODE_ENV=production grunt build","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","examples":"node ./examples/server.js","fix":"eslint --fix lib/**/*.js","postversion":"git push && git push --tags","preversion":"npm test","start":"node ./sandbox/server.js","test":"grunt test && bundlesize","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json"},"typings":"./index.d.ts","unpkg":"dist/axios.min.js","version":"0.21.1"};
+module.exports = {"_args":[["axios@0.21.1","/Users/marianeumayer/Documents/dev/find-reviewers-action"]],"_from":"axios@0.21.1","_id":"axios@0.21.1","_inBundle":false,"_integrity":"sha512-dKQiRHxGD9PPRIUNIWvZhPTPpl1rf/OxTYKsqKUDjBwYylTvV7SjSHJb9ratfyzM6wCdLCOYLzs73qpg5c4iGA==","_location":"/axios","_phantomChildren":{},"_requested":{"type":"version","registry":true,"raw":"axios@0.21.1","name":"axios","escapedName":"axios","rawSpec":"0.21.1","saveSpec":null,"fetchSpec":"0.21.1"},"_requiredBy":["/@slack/webhook"],"_resolved":"https://registry.npmjs.org/axios/-/axios-0.21.1.tgz","_spec":"0.21.1","_where":"/Users/marianeumayer/Documents/dev/find-reviewers-action","author":{"name":"Matt Zabriskie"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"bugs":{"url":"https://github.com/axios/axios/issues"},"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}],"dependencies":{"follow-redirects":"^1.10.0"},"description":"Promise based HTTP client for the browser and node.js","devDependencies":{"bundlesize":"^0.17.0","coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.0.2","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^20.1.0","grunt-karma":"^2.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^1.0.18","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^1.3.0","karma-chrome-launcher":"^2.2.0","karma-coverage":"^1.1.1","karma-firefox-launcher":"^1.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-opera-launcher":"^1.0.0","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^1.2.0","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.7","karma-webpack":"^1.7.0","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^5.2.0","sinon":"^4.5.0","typescript":"^2.8.1","url-search-params":"^0.10.0","webpack":"^1.13.1","webpack-dev-server":"^1.14.1"},"homepage":"https://github.com/axios/axios","jsdelivr":"dist/axios.min.js","keywords":["xhr","http","ajax","promise","node"],"license":"MIT","main":"index.js","name":"axios","repository":{"type":"git","url":"git+https://github.com/axios/axios.git"},"scripts":{"build":"NODE_ENV=production grunt build","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","examples":"node ./examples/server.js","fix":"eslint --fix lib/**/*.js","postversion":"git push && git push --tags","preversion":"npm test","start":"node ./sandbox/server.js","test":"grunt test && bundlesize","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json"},"typings":"./index.d.ts","unpkg":"dist/axios.min.js","version":"0.21.1"};
 
 /***/ }),
 
@@ -17041,7 +17120,7 @@ module.exports = (promise, onFinally) => {
 /***/ 698:
 /***/ (function(module) {
 
-module.exports = {"_from":"@slack/webhook","_id":"@slack/webhook@5.0.4","_inBundle":false,"_integrity":"sha512-IC1dpVSc2F/pmwCxOb0QzH2xnGKmyT7MofPGhNkeaoiMrLMU+Oc7xV/AxGnz40mURtCtaDchZSM3tDo9c9x6BA==","_location":"/@slack/webhook","_phantomChildren":{},"_requested":{"type":"tag","registry":true,"raw":"@slack/webhook","name":"@slack/webhook","escapedName":"@slack%2fwebhook","scope":"@slack","rawSpec":"","saveSpec":null,"fetchSpec":"latest"},"_requiredBy":["#USER","/"],"_resolved":"https://registry.npmjs.org/@slack/webhook/-/webhook-5.0.4.tgz","_shasum":"5d3e947387c1d0ccb176a153cec68c594edb7060","_spec":"@slack/webhook","_where":"/Users/florianthomas/Code/find-reviewers-action","author":{"name":"Slack Technologies, Inc."},"bugs":{"url":"https://github.com/slackapi/node-slack-sdk/issues"},"bundleDependencies":false,"dependencies":{"@slack/types":"^1.2.1","@types/node":">=8.9.0","axios":"^0.21.1"},"deprecated":false,"description":"Official library for using the Slack Platform's Incoming Webhooks","devDependencies":{"@microsoft/api-extractor":"^7.3.4","@types/chai":"^4.1.7","@types/mocha":"^5.2.6","chai":"^4.2.0","codecov":"^3.2.0","mocha":"^6.0.2","nock":"^10.0.6","nyc":"^14.1.1","shx":"^0.3.2","sinon":"^7.2.7","source-map-support":"^0.5.10","ts-node":"^8.0.3","tslint":"^5.13.1","tslint-config-airbnb":"^5.11.1","typescript":"^3.3.3333"},"engines":{"node":">= 8.9.0","npm":">= 5.5.1"},"files":["dist/**/*"],"homepage":"https://slack.dev/node-slack-sdk/webhook","keywords":["slack","request","client","http","api","proxy"],"license":"MIT","main":"dist/index.js","name":"@slack/webhook","publishConfig":{"access":"public"},"repository":{"type":"git","url":"git+https://github.com/slackapi/node-slack-sdk.git"},"scripts":{"build":"npm run build:clean && tsc","build:clean":"shx rm -rf ./dist ./coverage ./.nyc_output","coverage":"codecov -F webhook --root=$PWD","lint":"tslint --project .","prepare":"npm run build","ref-docs:model":"api-extractor run","test":"npm run build && nyc mocha --config .mocharc.json src/*.spec.js"},"types":"./dist/index.d.ts","version":"5.0.4"};
+module.exports = {"_args":[["@slack/webhook@5.0.4","/Users/marianeumayer/Documents/dev/find-reviewers-action"]],"_from":"@slack/webhook@5.0.4","_id":"@slack/webhook@5.0.4","_inBundle":false,"_integrity":"sha512-IC1dpVSc2F/pmwCxOb0QzH2xnGKmyT7MofPGhNkeaoiMrLMU+Oc7xV/AxGnz40mURtCtaDchZSM3tDo9c9x6BA==","_location":"/@slack/webhook","_phantomChildren":{},"_requested":{"type":"version","registry":true,"raw":"@slack/webhook@5.0.4","name":"@slack/webhook","escapedName":"@slack%2fwebhook","scope":"@slack","rawSpec":"5.0.4","saveSpec":null,"fetchSpec":"5.0.4"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/@slack/webhook/-/webhook-5.0.4.tgz","_spec":"5.0.4","_where":"/Users/marianeumayer/Documents/dev/find-reviewers-action","author":{"name":"Slack Technologies, Inc."},"bugs":{"url":"https://github.com/slackapi/node-slack-sdk/issues"},"dependencies":{"@slack/types":"^1.2.1","@types/node":">=8.9.0","axios":"^0.21.1"},"description":"Official library for using the Slack Platform's Incoming Webhooks","devDependencies":{"@microsoft/api-extractor":"^7.3.4","@types/chai":"^4.1.7","@types/mocha":"^5.2.6","chai":"^4.2.0","codecov":"^3.2.0","mocha":"^6.0.2","nock":"^10.0.6","nyc":"^14.1.1","shx":"^0.3.2","sinon":"^7.2.7","source-map-support":"^0.5.10","ts-node":"^8.0.3","tslint":"^5.13.1","tslint-config-airbnb":"^5.11.1","typescript":"^3.3.3333"},"engines":{"node":">= 8.9.0","npm":">= 5.5.1"},"files":["dist/**/*"],"homepage":"https://slack.dev/node-slack-sdk/webhook","keywords":["slack","request","client","http","api","proxy"],"license":"MIT","main":"dist/index.js","name":"@slack/webhook","publishConfig":{"access":"public"},"repository":{"type":"git","url":"git+https://github.com/slackapi/node-slack-sdk.git"},"scripts":{"build":"npm run build:clean && tsc","build:clean":"shx rm -rf ./dist ./coverage ./.nyc_output","coverage":"codecov -F webhook --root=$PWD","lint":"tslint --project .","prepare":"npm run build","ref-docs:model":"api-extractor run","test":"npm run build && nyc mocha --config .mocharc.json src/*.spec.js"},"types":"./dist/index.d.ts","version":"5.0.4"};
 
 /***/ }),
 

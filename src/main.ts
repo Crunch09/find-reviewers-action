@@ -10,16 +10,19 @@ async function run(): Promise<void> {
     const token = core.getInput("token", { required: true });
     const type = core.getInput("type", { required: true });
     const reviewers: ReviewAssigner = new ReviewAssigner();
-    const payload = github.context
-      .payload as Webhooks.Webhooks.WebhookPayloadPullRequest;
 
     const config = await fs.readFile(".github/find_reviewers.yml", "utf8");
     switch (type) {
       case "pull_request":
-        await reviewers.assignReviewers(token, payload, YAML.parse(config));
+        const prPayload = github.context
+          .payload as Webhooks.Webhooks.WebhookPayloadPullRequest;
+        await reviewers.assignReviewers(token, prPayload, YAML.parse(config));
         break;
       case "issue_comment":
-        await reviewers.updateReviewers(token, payload, YAML.parse(config));
+        const commentPayload = github.context
+          .payload as Webhooks.Webhooks.WebhookPayloadIssueComment;
+        await reviewers.reassignReviewer(token, commentPayload, YAML.parse(config));
+        break;
     }
 
   } catch (error) {
