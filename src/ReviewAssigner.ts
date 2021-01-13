@@ -140,6 +140,7 @@ export class ReviewAssigner {
             await this.updateReviewers(
               token,
               pickedReviewers,
+              [],
               currentReviewers,
               config
             );
@@ -184,6 +185,7 @@ export class ReviewAssigner {
           await this.updateReviewers(
             token,
             [replacementReviewer],
+            [unassignment[1]],
             currentReviewers,
             config
           );
@@ -271,6 +273,7 @@ export class ReviewAssigner {
   private async updateReviewers(
     token: string,
     pickedReviewers: string[],
+    excludedReviewers: string[],
     existingReviewers: ExistingReviewers,
     config: any
   ): Promise<void> {
@@ -284,7 +287,7 @@ export class ReviewAssigner {
         reviewers: [
           ...pickedReviewers,
           ...existingReviewers.users.map((x) => x.login.toLowerCase()),
-        ].filter((x) => x),
+        ].filter((x) => x && !excludedReviewers.includes(x)),
         team_reviewers: existingReviewers.teams.map((x) => x.slug),
       });
     } catch (error) {

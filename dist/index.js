@@ -2954,7 +2954,7 @@ class ReviewAssigner {
                             }
                         }
                         if (pickedReviewers.length > 0) {
-                            yield this.updateReviewers(token, pickedReviewers, currentReviewers, config);
+                            yield this.updateReviewers(token, pickedReviewers, [], currentReviewers, config);
                             yield this.sendSlackMessage(pickedReviewers, config, payload);
                         }
                     }
@@ -2979,7 +2979,7 @@ class ReviewAssigner {
                     ].filter((x) => x), unassignedPerson.toLowerCase());
                     if (replacementReviewer) {
                         yield this.removeReviewer(token, [unassignment[1]], config);
-                        yield this.updateReviewers(token, [replacementReviewer], currentReviewers, config);
+                        yield this.updateReviewers(token, [replacementReviewer], [unassignment[1]], currentReviewers, config);
                     }
                 }
             }
@@ -3048,7 +3048,7 @@ class ReviewAssigner {
             }
         });
     }
-    updateReviewers(token, pickedReviewers, existingReviewers, config) {
+    updateReviewers(token, pickedReviewers, excludedReviewers, existingReviewers, config) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const octo = github.getOctokit(token);
@@ -3059,7 +3059,7 @@ class ReviewAssigner {
                     reviewers: [
                         ...pickedReviewers,
                         ...existingReviewers.users.map((x) => x.login.toLowerCase()),
-                    ].filter((x) => x),
+                    ].filter((x) => x && !excludedReviewers.includes(x)),
                     team_reviewers: existingReviewers.teams.map((x) => x.slug),
                 });
             }
