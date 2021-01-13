@@ -8,12 +8,23 @@ import YAML from "yaml";
 async function run(): Promise<void> {
   try {
     const token = core.getInput("token", { required: true });
+    const type = core.getInput("type", { required: true });
     const reviewers: ReviewAssigner = new ReviewAssigner();
-    const payload = github.context
-      .payload as Webhooks.Webhooks.WebhookPayloadPullRequest;
 
     const config = await fs.readFile(".github/find_reviewers.yml", "utf8");
-    await reviewers.assignReviewers(token, payload, YAML.parse(config));
+    switch (type) {
+      case "pull_request":
+        const prPayload = github.context
+          .payload as Webhooks.Webhooks.WebhookPayloadPullRequest;
+        await reviewers.assignReviewers(token, prPayload, YAML.parse(config));
+        break;
+      case "issue_comment":
+        const commentPayload = github.context
+          .payload as Webhooks.Webhooks.WebhookPayloadIssueComment;
+        await reviewers.reassignReviewer(token, commentPayload, YAML.parse(config));
+        break;
+    }
+
   } catch (error) {
     core.error(error);
     core.setFailed(error.message);

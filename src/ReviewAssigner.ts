@@ -38,6 +38,23 @@ export interface PullRequestLabeled {
   label?: Label;
 }
 
+export interface PullRequestCommented {
+  action: string;
+  issue: Issue,
+  repository: Repository;
+  label?: Label;
+  comment: Comment;
+}
+
+export interface Comment {
+  body: string;
+}
+
+export interface Issue {
+  labels: Label[];
+  user: User;
+}
+
 export interface AssignedReviewer {
   login: string;
   id: number;
@@ -133,6 +150,48 @@ export class ReviewAssigner {
     }
   }
 
+  async reassignReviewer(
+    token: string,
+    payload: PullRequestCommented,
+    config: any
+  ): Promise<void> {
+    const commentRegex = /^\/reviewers unassign @(\S+)/gi;
+    const body = payload.comment.body;
+    const unassignment = commentRegex.exec(body);
+
+    if (unassignment !== null) {
+      const unassignedPerson = unassignment[1].toLowerCase();
+      const currentReviewers = await this.getRequestedReviewers(token);
+      const mappedCurrentReviewers = currentReviewers.users
+        .map((x) => x.login.toLowerCase()).filter((x) => x);
+
+      if (mappedCurrentReviewers.includes(unassignedPerson)) {
+        let replacementReviewer = await this.getPossibleReviewer(
+          payload,
+          config,
+          [
+            unassignedPerson.toLowerCase(),
+            ...mappedCurrentReviewers
+          ].filter((x) => x),
+          unassignedPerson.toLowerCase()
+        );
+        if (replacementReviewer) {
+          await this.removeReviewer(
+           token,
+           [unassignment[1]],
+           config
+          );
+          await this.updateReviewers(
+            token,
+            [replacementReviewer],
+            currentReviewers,
+            config
+          );
+        }
+      }
+    }
+  }
+
   private async getRequestedReviewers(
     token: string
   ): Promise<ExistingReviewers> {
@@ -148,6 +207,64 @@ export class ReviewAssigner {
     } catch (error) {
       core.setFailed(`Get requested reviewers error: ${error.message}`);
       return Promise.resolve({ users: [], teams: [] });
+    }
+  }
+
+  private async getPossibleReviewer(
+    payload: PullRequestCommented,
+    config: any,
+    reviewersToExclude: string[],
+    unassignedPerson: string,
+  ) {
+    const currentLabels = payload.issue.labels.map((x) => x.name);
+
+    const uniqueReviewersToExclude = [...(new Set(reviewersToExclude))];
+
+    const owner = payload.issue.user.login.toLowerCase();
+    reviewersToExclude = [owner, ...uniqueReviewersToExclude].filter((x) => x);
+
+    for (let i in config.labels) {
+      if (currentLabels.includes(config.labels[i].label)) {
+        for (let g in config.labels[i].groups) {
+          let specificConfig = config.labels[i].groups[g];
+          let possibleReviewers = specificConfig.possible_reviewers;
+          if (possibleReviewers && possibleReviewers.includes(unassignedPerson)
+            && specificConfig.number_of_picks) {
+            for (let i = 0; i < reviewersToExclude.length; i++) {
+              let index = possibleReviewers.indexOf(reviewersToExclude[i]);
+              if (index > -1) {
+                possibleReviewers.splice(index, 1);
+              }
+            }
+            if (possibleReviewers.length > 0) {
+              return possibleReviewers[
+                Math.floor(Math.random() * possibleReviewers.length)
+              ];
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private async removeReviewer(
+    token: string,
+    reviewers: string[],
+    config: any
+  ): Promise<void> {
+    try {
+      const octo = github.getOctokit(token);
+
+      await octo.pulls.removeRequestedReviewers({
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        pull_number: github.context.issue.number,
+        reviewers: reviewers,
+        team_reviewers: reviewers,
+      });
+    } catch (error) {
+      core.setFailed(`Couldn't remove reviewer: ${error.message}`);
     }
   }
 

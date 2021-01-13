@@ -1,8 +1,12 @@
 name: 'Find reviewers'
 description: "Find random reviewers"
-outputs:
-  time:
-    description: "The time this command ran"
+inputs:
+  token:
+    description: 'Github token'
+    required: true
+  type:
+    description: 'Event that triggered this action'
+    required: true
 runs:
   using: 'node12'
   main: 'dist/index.js'

@@ -1,6 +1,8 @@
 on:
   pull_request:
     types: [labeled]
+  issue_comment:
+    types: [created]
 
 jobs:
   find_reviewers_job:
@@ -14,3 +16,4 @@ jobs:
         id: find-reviewers
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
+          type: "${{ github.event_name }}"
