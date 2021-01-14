@@ -2903,7 +2903,9 @@ const core = __importStar(__webpack_require__(470));
 const github = __importStar(__webpack_require__(469));
 const slack = __importStar(__webpack_require__(736));
 class ReviewAssigner {
-    constructor() { }
+    constructor(debugOnly) {
+        this.debugOnly = debugOnly;
+    }
     assignReviewers(token, payload, config) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
@@ -2957,9 +2959,11 @@ class ReviewAssigner {
                             yield this.updateReviewers(token, pickedReviewers, [], currentReviewers, config);
                             yield this.sendSlackMessage(pickedReviewers, config, payload);
                         }
+                        return Promise.resolve(pickedReviewers);
                     }
                 }
             }
+            return Promise.resolve([]);
         });
     }
     reassignReviewer(token, payload, config) {
@@ -2971,12 +2975,10 @@ class ReviewAssigner {
                 const unassignedPerson = unassignment[1].toLowerCase();
                 const currentReviewers = yield this.getRequestedReviewers(token);
                 const mappedCurrentReviewers = currentReviewers.users
-                    .map((x) => x.login.toLowerCase()).filter((x) => x);
+                    .map((x) => x.login.toLowerCase())
+                    .filter((x) => x);
                 if (mappedCurrentReviewers.includes(unassignedPerson)) {
-                    let replacementReviewer = yield this.getPossibleReviewer(payload, config, [
-                        unassignedPerson.toLowerCase(),
-                        ...mappedCurrentReviewers
-                    ].filter((x) => x), unassignedPerson.toLowerCase());
+                    let replacementReviewer = yield this.getPossibleReviewer(payload, config, [unassignedPerson.toLowerCase(), ...mappedCurrentReviewers].filter((x) => x), unassignedPerson.toLowerCase());
                     if (replacementReviewer) {
                         yield this.removeReviewer(token, [unassignment[1]], config);
                         yield this.updateReviewers(token, [replacementReviewer], [unassignment[1]], currentReviewers, config);
@@ -2987,6 +2989,9 @@ class ReviewAssigner {
     }
     getRequestedReviewers(token) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (this.debugOnly) {
+                return Promise.resolve({ users: [], teams: [] });
+            }
             try {
                 const octo = github.getOctokit(token);
                 const reviewersResult = yield octo.pulls.listRequestedReviewers({
@@ -3005,7 +3010,7 @@ class ReviewAssigner {
     getPossibleReviewer(payload, config, reviewersToExclude, unassignedPerson) {
         return __awaiter(this, void 0, void 0, function* () {
             const currentLabels = payload.issue.labels.map((x) => x.name);
-            const uniqueReviewersToExclude = [...(new Set(reviewersToExclude))];
+            const uniqueReviewersToExclude = [...new Set(reviewersToExclude)];
             const owner = payload.issue.user.login.toLowerCase();
             reviewersToExclude = [owner, ...uniqueReviewersToExclude].filter((x) => x);
             for (let i in config.labels) {
@@ -3013,8 +3018,9 @@ class ReviewAssigner {
                     for (let g in config.labels[i].groups) {
                         let specificConfig = config.labels[i].groups[g];
                         let possibleReviewers = specificConfig.possible_reviewers;
-                        if (possibleReviewers && possibleReviewers.includes(unassignedPerson)
-                            && specificConfig.number_of_picks) {
+                        if (possibleReviewers &&
+                            possibleReviewers.includes(unassignedPerson) &&
+                            specificConfig.number_of_picks) {
                             for (let i = 0; i < reviewersToExclude.length; i++) {
                                 let index = possibleReviewers.indexOf(reviewersToExclude[i]);
                                 if (index > -1) {
@@ -3050,6 +3056,9 @@ class ReviewAssigner {
     }
     updateReviewers(token, pickedReviewers, excludedReviewers, existingReviewers, config) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (this.debugOnly) {
+                return;
+            }
             try {
                 const octo = github.getOctokit(token);
                 yield octo.pulls.requestReviewers({
@@ -3071,6 +3080,9 @@ class ReviewAssigner {
     sendSlackMessage(pickedReviewers, config, payload) {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
+            if (this.debugOnly) {
+                return;
+            }
             try {
                 const slackConfig = (_a = config.notifications) === null || _a === void 0 ? void 0 : _a.slack;
                 if (slackConfig) {
@@ -4571,7 +4583,7 @@ function run() {
         try {
             const token = core.getInput("token", { required: true });
             const type = core.getInput("type", { required: true });
-            const reviewers = new ReviewAssigner_1.ReviewAssigner();
+            const reviewers = new ReviewAssigner_1.ReviewAssigner(false);
             const config = yield fs_1.promises.readFile(".github/find_reviewers.yml", "utf8");
             switch (type) {
                 case "pull_request":
@@ -17120,7 +17132,7 @@ module.exports = (promise, onFinally) => {
 /***/ 698:
 /***/ (function(module) {
 
-module.exports = {"_from":"@slack/webhook","_id":"@slack/webhook@5.0.4","_inBundle":false,"_integrity":"sha512-IC1dpVSc2F/pmwCxOb0QzH2xnGKmyT7MofPGhNkeaoiMrLMU+Oc7xV/AxGnz40mURtCtaDchZSM3tDo9c9x6BA==","_location":"/@slack/webhook","_phantomChildren":{},"_requested":{"type":"tag","registry":true,"raw":"@slack/webhook","name":"@slack/webhook","escapedName":"@slack%2fwebhook","scope":"@slack","rawSpec":"","saveSpec":null,"fetchSpec":"latest"},"_requiredBy":["#USER","/"],"_resolved":"https://registry.npmjs.org/@slack/webhook/-/webhook-5.0.4.tgz","_shasum":"5d3e947387c1d0ccb176a153cec68c594edb7060","_spec":"@slack/webhook","_where":"/Users/florianthomas/Code/find-reviewers-action","author":{"name":"Slack Technologies, Inc."},"bugs":{"url":"https://github.com/slackapi/node-slack-sdk/issues"},"bundleDependencies":false,"dependencies":{"@slack/types":"^1.2.1","@types/node":">=8.9.0","axios":"^0.21.1"},"deprecated":false,"description":"Official library for using the Slack Platform's Incoming Webhooks","devDependencies":{"@microsoft/api-extractor":"^7.3.4","@types/chai":"^4.1.7","@types/mocha":"^5.2.6","chai":"^4.2.0","codecov":"^3.2.0","mocha":"^6.0.2","nock":"^10.0.6","nyc":"^14.1.1","shx":"^0.3.2","sinon":"^7.2.7","source-map-support":"^0.5.10","ts-node":"^8.0.3","tslint":"^5.13.1","tslint-config-airbnb":"^5.11.1","typescript":"^3.3.3333"},"engines":{"node":">= 8.9.0","npm":">= 5.5.1"},"files":["dist/**/*"],"homepage":"https://slack.dev/node-slack-sdk/webhook","keywords":["slack","request","client","http","api","proxy"],"license":"MIT","main":"dist/index.js","name":"@slack/webhook","publishConfig":{"access":"public"},"repository":{"type":"git","url":"git+https://github.com/slackapi/node-slack-sdk.git"},"scripts":{"build":"npm run build:clean && tsc","build:clean":"shx rm -rf ./dist ./coverage ./.nyc_output","coverage":"codecov -F webhook --root=$PWD","lint":"tslint --project .","prepare":"npm run build","ref-docs:model":"api-extractor run","test":"npm run build && nyc mocha --config .mocharc.json src/*.spec.js"},"types":"./dist/index.d.ts","version":"5.0.4"};
+module.exports = {"_args":[["@slack/webhook@5.0.4","/Users/florianthomas/Code/find-reviewers-action"]],"_from":"@slack/webhook@5.0.4","_id":"@slack/webhook@5.0.4","_inBundle":false,"_integrity":"sha512-IC1dpVSc2F/pmwCxOb0QzH2xnGKmyT7MofPGhNkeaoiMrLMU+Oc7xV/AxGnz40mURtCtaDchZSM3tDo9c9x6BA==","_location":"/@slack/webhook","_phantomChildren":{},"_requested":{"type":"version","registry":true,"raw":"@slack/webhook@5.0.4","name":"@slack/webhook","escapedName":"@slack%2fwebhook","scope":"@slack","rawSpec":"5.0.4","saveSpec":null,"fetchSpec":"5.0.4"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/@slack/webhook/-/webhook-5.0.4.tgz","_spec":"5.0.4","_where":"/Users/florianthomas/Code/find-reviewers-action","author":{"name":"Slack Technologies, Inc."},"bugs":{"url":"https://github.com/slackapi/node-slack-sdk/issues"},"dependencies":{"@slack/types":"^1.2.1","@types/node":">=8.9.0","axios":"^0.21.1"},"description":"Official library for using the Slack Platform's Incoming Webhooks","devDependencies":{"@microsoft/api-extractor":"^7.3.4","@types/chai":"^4.1.7","@types/mocha":"^5.2.6","chai":"^4.2.0","codecov":"^3.2.0","mocha":"^6.0.2","nock":"^10.0.6","nyc":"^14.1.1","shx":"^0.3.2","sinon":"^7.2.7","source-map-support":"^0.5.10","ts-node":"^8.0.3","tslint":"^5.13.1","tslint-config-airbnb":"^5.11.1","typescript":"^3.3.3333"},"engines":{"node":">= 8.9.0","npm":">= 5.5.1"},"files":["dist/**/*"],"homepage":"https://slack.dev/node-slack-sdk/webhook","keywords":["slack","request","client","http","api","proxy"],"license":"MIT","main":"dist/index.js","name":"@slack/webhook","publishConfig":{"access":"public"},"repository":{"type":"git","url":"git+https://github.com/slackapi/node-slack-sdk.git"},"scripts":{"build":"npm run build:clean && tsc","build:clean":"shx rm -rf ./dist ./coverage ./.nyc_output","coverage":"codecov -F webhook --root=$PWD","lint":"tslint --project .","prepare":"npm run build","ref-docs:model":"api-extractor run","test":"npm run build && nyc mocha --config .mocharc.json src/*.spec.js"},"types":"./dist/index.d.ts","version":"5.0.4"};
 
 /***/ }),
 

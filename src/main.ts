@@ -9,7 +9,7 @@ async function run(): Promise<void> {
   try {
     const token = core.getInput("token", { required: true });
     const type = core.getInput("type", { required: true });
-    const reviewers: ReviewAssigner = new ReviewAssigner();
+    const reviewers: ReviewAssigner = new ReviewAssigner(false);
 
     const config = await fs.readFile(".github/find_reviewers.yml", "utf8");
     switch (type) {
@@ -21,10 +21,13 @@ async function run(): Promise<void> {
       case "issue_comment":
         const commentPayload = github.context
           .payload as Webhooks.Webhooks.WebhookPayloadIssueComment;
-        await reviewers.reassignReviewer(token, commentPayload, YAML.parse(config));
+        await reviewers.reassignReviewer(
+          token,
+          commentPayload,
+          YAML.parse(config)
+        );
         break;
     }
-
   } catch (error) {
     core.error(error);
     core.setFailed(error.message);

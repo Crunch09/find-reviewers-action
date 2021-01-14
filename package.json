@@ -7,8 +7,9 @@
   "scripts": {
     "build": "tsc",
     "format": "prettier --write **/*.ts",
-    "lint": "eslint src/**/*.ts",
-    "pack": "ncc build"
+    "pack": "ncc build",
+    "test": "jest",
+    "all": "npm run build && npm run format && npm run pack && npm test"
   },
   "repository": {
     "type": "git",
@@ -31,9 +32,12 @@
   },
   "devDependencies": {
     "@octokit/webhooks": "^7.6.4",
+    "@types/jest": "^26.0.20",
     "@zeit/ncc": "^0.22.3",
-    "eslint": "^7.3.0",
+    "jest": "^26.6.3",
+    "jest-circus": "^26.6.3",
     "prettier": "^2.0.5",
+    "ts-jest": "^26.4.4",
     "typescript": "^3.9.5"
   }
 }

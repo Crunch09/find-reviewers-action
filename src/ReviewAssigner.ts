@@ -40,7 +40,7 @@ export interface PullRequestLabeled {
 
 export interface PullRequestCommented {
   action: string;
-  issue: Issue,
+  issue: Issue;
   repository: Repository;
   label?: Label;
   comment: Comment;
@@ -62,13 +62,17 @@ export interface AssignedReviewer {
 }
 
 export class ReviewAssigner {
-  constructor() {}
+  readonly debugOnly: boolean;
+
+  constructor(debugOnly: boolean) {
+    this.debugOnly = debugOnly;
+  }
 
   async assignReviewers(
     token: string,
     payload: PullRequestLabeled,
     config: any
-  ): Promise<void> {
+  ): Promise<string[]> {
     const attachedLabel = payload.label?.name;
 
     for (const i in config.labels) {
@@ -146,9 +150,11 @@ export class ReviewAssigner {
             );
             await this.sendSlackMessage(pickedReviewers, config, payload);
           }
+          return Promise.resolve(pickedReviewers);
         }
       }
     }
+    return Promise.resolve([]);
   }
 
   async reassignReviewer(
@@ -164,24 +170,20 @@ export class ReviewAssigner {
       const unassignedPerson = unassignment[1].toLowerCase();
       const currentReviewers = await this.getRequestedReviewers(token);
       const mappedCurrentReviewers = currentReviewers.users
-        .map((x) => x.login.toLowerCase()).filter((x) => x);
+        .map((x) => x.login.toLowerCase())
+        .filter((x) => x);
 
       if (mappedCurrentReviewers.includes(unassignedPerson)) {
         let replacementReviewer = await this.getPossibleReviewer(
           payload,
           config,
-          [
-            unassignedPerson.toLowerCase(),
-            ...mappedCurrentReviewers
-          ].filter((x) => x),
+          [unassignedPerson.toLowerCase(), ...mappedCurrentReviewers].filter(
+            (x) => x
+          ),
           unassignedPerson.toLowerCase()
         );
         if (replacementReviewer) {
-          await this.removeReviewer(
-           token,
-           [unassignment[1]],
-           config
-          );
+          await this.removeReviewer(token, [unassignment[1]], config);
           await this.updateReviewers(
             token,
             [replacementReviewer],
@@ -197,6 +199,9 @@ export class ReviewAssigner {
   private async getRequestedReviewers(
     token: string
   ): Promise<ExistingReviewers> {
+    if (this.debugOnly) {
+      return Promise.resolve({ users: [], teams: [] });
+    }
     try {
       const octo = github.getOctokit(token);
 
@@ -216,11 +221,11 @@ export class ReviewAssigner {
     payload: PullRequestCommented,
     config: any,
     reviewersToExclude: string[],
-    unassignedPerson: string,
+    unassignedPerson: string
   ) {
     const currentLabels = payload.issue.labels.map((x) => x.name);
 
-    const uniqueReviewersToExclude = [...(new Set(reviewersToExclude))];
+    const uniqueReviewersToExclude = [...new Set(reviewersToExclude)];
 
     const owner = payload.issue.user.login.toLowerCase();
     reviewersToExclude = [owner, ...uniqueReviewersToExclude].filter((x) => x);
@@ -230,8 +235,11 @@ export class ReviewAssigner {
         for (let g in config.labels[i].groups) {
           let specificConfig = config.labels[i].groups[g];
           let possibleReviewers = specificConfig.possible_reviewers;
-          if (possibleReviewers && possibleReviewers.includes(unassignedPerson)
-            && specificConfig.number_of_picks) {
+          if (
+            possibleReviewers &&
+            possibleReviewers.includes(unassignedPerson) &&
+            specificConfig.number_of_picks
+          ) {
             for (let i = 0; i < reviewersToExclude.length; i++) {
               let index = possibleReviewers.indexOf(reviewersToExclude[i]);
               if (index > -1) {
@@ -277,6 +285,9 @@ export class ReviewAssigner {
     existingReviewers: ExistingReviewers,
     config: any
   ): Promise<void> {
+    if (this.debugOnly) {
+      return;
+    }
     try {
       const octo = github.getOctokit(token);
 
@@ -300,6 +311,9 @@ export class ReviewAssigner {
     config: any,
     payload: PullRequestLabeled
   ) {
+    if (this.debugOnly) {
+      return;
+    }
     try {
       const slackConfig = config.notifications?.slack;
       if (slackConfig) {
